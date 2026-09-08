@@ -1,0 +1,17 @@
+{
+  "name": "Diário Alimentar",
+  "short_name": "Diário",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#eef1f5",
+  "theme_color": "#1769aa",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
