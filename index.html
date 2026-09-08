@@ -19,6 +19,12 @@ input{width:100%;padding:11px;border:1px solid #ccd3da;border-radius:10px;font-s
 .food small{color:var(--muted);font-weight:400}.items{max-height:250px;overflow:auto}.item{padding:8px 0;border-bottom:1px solid #e8ebee}.empty{text-align:center;color:var(--muted);padding:15px}
 .modal{position:fixed;inset:0;background:#0008;display:none;align-items:flex-end;justify-content:center;padding:12px}.modal.show{display:flex}.sheet{background:white;border-radius:20px 20px 12px 12px;padding:18px;width:min(720px,100%);max-height:90vh;overflow:auto}
 @media(min-width:600px){.modal{align-items:center}.sheet{border-radius:20px}}
+
+.waterBtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.waterBtns button{flex:1;min-width:95px}
+.goalLine{display:flex;gap:10px;align-items:center}
+.chartRow{display:grid;grid-template-columns:95px 1fr 55px;gap:8px;align-items:center;margin:10px 0;font-size:13px}
+.chartTrack{height:18px;background:#e1e6eb;border-radius:10px;overflow:hidden}.chartFill{height:100%;width:0;background:var(--blue);border-radius:10px;transition:.25s}
+.chartNote{font-size:12px;color:var(--muted);margin-top:8px}
 </style>
 </head>
 <body>
@@ -30,6 +36,27 @@ input{width:100%;padding:11px;border:1px solid #ccd3da;border-radius:10px;font-s
  <div class="grid" style="margin-top:10px">
   <div class="macro">Proteína<b id="p">0 g</b></div><div class="macro">Carboidratos<b id="c">0 g</b></div><div class="macro">Gorduras<b id="f">0 g</b></div><div class="macro">Restante<b id="remain">2.500 kcal</b></div>
  </div>
+</section>
+<section class="card">
+  <div class="goalLine">
+    <div style="flex:1"><div class="muted">Meta diária de proteína</div><div id="proteinGoal" class="big">200 g</div></div>
+    <button id="editProtein" class="secondary">Alterar</button>
+  </div>
+  <div class="bar"><div id="proteinFill" class="fill"></div></div>
+  <div id="proteinStatus" class="muted">0% da meta</div>
+</section>
+<section class="card">
+  <div class="row"><div><b>Água</b><div id="waterTotal" class="big">0,0 L</div></div><div class="muted">Passos de 500 ml</div></div>
+  <div class="waterBtns"><button id="waterMinus" class="secondary">− 500 ml</button><button id="waterPlus">+ 500 ml</button></div>
+</section>
+<section class="card">
+  <div class="row"><b>Gráfico de macros</b><span class="muted">gramas</span></div>
+  <div style="padding-top:8px">
+    <div class="chartRow"><span>Proteína</span><div class="chartTrack"><div id="chartP" class="chartFill"></div></div><b id="chartPV">0 g</b></div>
+    <div class="chartRow"><span>Carboidratos</span><div class="chartTrack"><div id="chartC" class="chartFill"></div></div><b id="chartCV">0 g</b></div>
+    <div class="chartRow"><span>Gorduras</span><div class="chartTrack"><div id="chartF" class="chartFill"></div></div><b id="chartFV">0 g</b></div>
+    <div class="chartNote">Comparação visual dos três macros consumidos no dia.</div>
+  </div>
 </section>
 <section class="card">
  <div class="row"><b>Alimentos</b><button id="add">+ Adicionar alimento</button></div>
@@ -74,9 +101,12 @@ const base=[
 ["Doce de leite","2 colheres (~40 g)",130,2.4,22,3]
 ];
 let custom=JSON.parse(localStorage.getItem("foods")||"[]"), foods=[...base,...custom];
-let goal=Number(localStorage.getItem("goal")||2500), items=JSON.parse(localStorage.getItem("day")||"[]");
+let goal=Number(localStorage.getItem("goal")||2500),
+    proteinGoal=Number(localStorage.getItem("proteinGoal")||200),
+    water=Number(localStorage.getItem("water")||0),
+    items=JSON.parse(localStorage.getItem("day")||"[]");
 const $=id=>document.getElementById(id);
-function save(){localStorage.setItem("foods",JSON.stringify(custom));localStorage.setItem("goal",goal);localStorage.setItem("day",JSON.stringify(items))}
+function save(){localStorage.setItem("foods",JSON.stringify(custom));localStorage.setItem("goal",goal);localStorage.setItem("proteinGoal",proteinGoal);localStorage.setItem("water",water);localStorage.setItem("day",JSON.stringify(items))}
 function renderFoods(){
  const q=$("search").value.toLowerCase(); $("foods").innerHTML="";
  foods.filter(x=>(x[0]+" "+x[1]).toLowerCase().includes(q)).forEach((x,i)=>{
@@ -99,6 +129,20 @@ function render(){
  $("status").textContent=t.k>goal?`⚠️ Meta ultrapassada em ${Math.round(t.k-goal)} kcal`:`${pct}% da meta`;
  $("status").style.color=t.k>goal?"var(--red)":"var(--muted)";
  $("remain").textContent=t.k>=goal?"0 kcal":Math.round(goal-t.k)+" kcal";
+  $("proteinGoal").textContent=Math.round(proteinGoal).toLocaleString("pt-BR")+" g";
+  let pp=proteinGoal?Math.round(t.p/proteinGoal*100):0;
+  $("proteinFill").style.width=Math.min(100,pp)+"%";
+  $("proteinFill").classList.toggle("over",t.p>proteinGoal);
+  $("proteinStatus").textContent=t.p>=proteinGoal?`🎯 Meta atingida: ${t.p.toFixed(1)} g`:`${pp}% da meta`;
+  $("proteinStatus").style.color=t.p>=proteinGoal?"var(--green)":"var(--muted)";
+  $("waterTotal").textContent=(water/1000).toLocaleString("pt-BR",{minimumFractionDigits:1,maximumFractionDigits:1})+" L";
+  const maxMacro=Math.max(t.p,t.c,t.f,1);
+  $("chartP").style.width=(t.p/maxMacro*100)+"%";
+  $("chartC").style.width=(t.c/maxMacro*100)+"%";
+  $("chartF").style.width=(t.f/maxMacro*100)+"%";
+  $("chartPV").textContent=t.p.toFixed(1)+" g";
+  $("chartCV").textContent=t.c.toFixed(1)+" g";
+  $("chartFV").textContent=t.f.toFixed(1)+" g";
  $("items").innerHTML=items.length?items.map((x,i)=>`<div class="item row"><span><b>${x[0]}</b><br><small>${x[1]} · ${x[2]} kcal</small></span><button class="secondary" data-i="${i}">Remover</button></div>`).join(""):'<div class="empty">Nenhum alimento adicionado hoje.</div>';
  document.querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>{items.splice(+b.dataset.i,1);save();render()}); renderFoods();
 }
@@ -109,13 +153,11 @@ function openModal(editGoal=false){
  else $("name").focus();
 }
 $("add").onclick=()=>openModal(false);$("close").onclick=()=>$("modal").classList.remove("show");$("editGoal").onclick=()=>openModal(true);
-$("search").oninput=renderFoods;$("clear").onclick=()=>{if(confirm("Zerar toda a ingestão de hoje?")){items=[];save();render()}};
+$("search").oninput=renderFoods;
+$("waterPlus").onclick=()=>{water+=500;save();render()};
+$("waterMinus").onclick=()=>{water=Math.max(0,water-500);save();render()};
+$("editProtein").onclick=()=>{let v=prompt("Digite sua meta diária de proteína em gramas:",proteinGoal);if(v!==null){v=Number(v.replace(",","."));if(isFinite(v)&&v>0){proteinGoal=v;save();render()}}};$("clear").onclick=()=>{if(confirm("Zerar toda a ingestão de hoje?")){items=[];water=0;save();render()}};
 $("form").onsubmit=e=>{e.preventDefault();let x=[$("name").value.trim(),$("portion").value.trim(),+$("cal").value,+$("pro").value||0,+$("carb").value||0,+$("fat").value||0];if(!x[0]||!x[1]||!isFinite(x[2])||x[2]<0)return;custom.push(x);foods=[...base,...custom];save();$("modal").classList.remove("show");e.target.reset();render()};
 render();
 </script>
-<script>
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js"));
-}
-</script>
-</body></html>
+<script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js"))}</script></body></html>
